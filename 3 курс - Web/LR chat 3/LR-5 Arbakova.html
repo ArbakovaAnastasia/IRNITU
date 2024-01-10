@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+	</head>
+	<style>
+		body{
+			background: url(9f13a53daea2316d257b70aed1735985.gif);
+			background-size: cover;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+		}
+		h1{
+			color: black;
+			font-size: 40pt;
+		}
+		textarea{
+			width: 600px;
+			height:50px;
+		}
+		button{
+			height:50px;
+		}
+	</style>
+	<body>
+		<h1>ЧАТ</h1>
+		<div><textarea placeholder="Ваше сообщение..."></textarea>
+		<button onclick="send()">Отправить</button></div>
+		<ul>
+		
+		</ul>
+		<script src="https://code.jquery.com/jquery-3.4.1.js" integrity="sha256-WpOohJOqMqqyKL9FccASB9O0KwACQJpFTUBLTYOVvVU=" crossorigin="anonymous"></script>
+		<script>
+			function send(){
+				let text = document.querySelector('textarea').value;
+				$.ajax({
+					type: "POST",
+					url: 'chat.php',
+					data: {
+						'text': text
+					}
+				});
+				getMessage()
+			}
+			function getMessages(){
+				$.ajax({
+					type: "POST",
+					url: 'chat.php',
+					data: {
+						'get': get
+					}
+				}).done(function(result)){
+					$('ul').append(result);
+				})
+			}
+		</script>
+	</body>
+</html>

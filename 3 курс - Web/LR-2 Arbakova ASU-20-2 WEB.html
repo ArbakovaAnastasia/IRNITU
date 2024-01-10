@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+</head>
+<body>
+    <div>
+      <input type="number" name="numX" id="numX">
+      <input type="number" name="numY" id="numY">
+      <button onclick="addition()"><b>+ (сложение)</b></button>
+	  <button onclick="subtraction()"><b>- (вычитание)</b></button>
+	  <button onclick="multiplication()"><b>* (умножение)</b></button>
+	  <button onclick="division()"><b>/ (деление)</b></button>
+      <div class="t">Ответ: </div>
+    </div>
+</body>
+<script>
+  function addition(){
+    Y=parseInt(document.querySelector("input[name='numY']").value);
+    X=parseInt(document.querySelector("input[name='numX']").value);
+    s=X+Y;
+    document.querySelector(".t").innerHTML = "Ответ: " + s
+  }
+  function subtraction(){
+    Y=parseInt(document.querySelector("input[name='numY']").value);
+    X=parseInt(document.querySelector("input[name='numX']").value);
+    s=X-Y;
+    document.querySelector(".t").innerHTML = "Ответ: " + s
+  }
+  function multiplication(){
+    Y=parseInt(document.querySelector("input[name='numY']").value);
+    X=parseInt(document.querySelector("input[name='numX']").value);
+    s=X*Y;
+    document.querySelector(".t").innerHTML = "Ответ: " + s
+  }
+  function division(){
+    Y=parseInt(document.querySelector("input[name='numY']").value);
+    X=parseInt(document.querySelector("input[name='numX']").value);
+    s=X/Y;
+    document.querySelector(".t").innerHTML = "Ответ: " + s
+  }
+</script>
+</html>

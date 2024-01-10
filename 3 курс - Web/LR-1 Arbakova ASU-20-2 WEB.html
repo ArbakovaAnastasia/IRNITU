@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title> TITLE </title>
+  <style>
+    .mytable {background-color: #ccc;
+              border: #aaa;}
+    .margin {padding: 10px;}
+    </style>
+</head>
+<body>
+    <div>
+      <input type="number" name="numX" id="numX" min="1" max="100">
+      <input type="number" name="numY" id="numY" min="1" max="100">
+      <button onclick="multiplication()"><b> Таблица умножения </b></button>
+      <div class="t"></div>
+    </div>
+</body>
+<script>
+  function multiplication(){
+    var numY=document.querySelector("input[name='numY']").value;
+    var numX=document.querySelector("input[name='numX']").value;
+    s='<table class="mytable" border="1">';
+    for (y=1; y<=numY;y++){
+      s+= '<tr>';
+      for (x=1; x<=numX;x++){
+        s+='<td class="margin">';
+        s+=x*y;
+        s+='</td>';
+      }
+      s+='</tr>';
+    }
+    s+='</table>';
+    document.querySelector(".t").innerHTML = s
+  }
+</script>
+</html>
