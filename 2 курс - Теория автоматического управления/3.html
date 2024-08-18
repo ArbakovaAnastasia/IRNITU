@@ -1,0 +1,38 @@
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"> </script> <script type="text/javascript">google.charts.load('current', {'packages':['corechart']}); google.charts.load('current', {'packages':['corechart']});
+google.charts.setOnLoadCallback(drawChart);
+function drawChart(){
+var k,y,y1,y2,z,z1,z2,std,x;
+const dt=0.001; k1=3.5; k2=3; k3=1.1; L=5;
+t1=0.04; t3=0.1; g=1;
+y=0; y1=0; y2=0; 
+z=0; z1=0; z2=0; std=0;
+var A=new Array(['X', 'Переходная функция']);
+var i=1;
+while(std < 3){
+
+x=g-y2;
+y=z;
+z=z+(k3/t3*x-y/t3)*dt;
+y1=z1;
+z1=z1+(k1/t1*y-y1/t1)*dt;
+y2=z2;
+z2=z2+(k2*y1)*dt;
+
+
+
+
+A[i]=[std,y];
+std=std+dt;
+i++;
+}
+var data = google.visualization.arrayToDataTable(A);
+var options = {
+title: 'Моделирование заданного типового звена',
+curveType: 'function',
+legend: { position: 'bottom' }
+};
+var chart = new google.visualization.LineChart(document.getElementById('NotSustSystemExample'));
+chart.draw(data, options);
+}
+</script>
+<div id="NotSustSystemExample"></div>

@@ -1,0 +1,96 @@
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>  
+<script type="text/javascript">
+  google.charts.load('current', {'packages':['corechart']});
+  google.charts.setOnLoadCallback(drawChart);
+  function drawChart(){
+    var T1=0.5; 
+var T2=0.2;
+var T3=1;
+var k1=10;
+var k2=40;
+var k3=0.01;
+    var g=1;
+    var dt=0.001;
+    var z1,z11,z12,z3,y1,y2,y3,x;
+var e=0.2;
+var m1,m2,m3,m4;
+var m11,m21,m31,m41;
+    var y,t_;
+    var ns, tau=0.16;
+    ns=tau/dt;
+      y=0;y1=0;y2=0;y3=0; 
+      z1=0; z11=0; z12=0; z3=0;
+      t_=0;
+    var A=new Array(['x', 'h(t)']); 
+    var mas=new Array(['y']);
+    var i=1;j=0;w=0;
+var yos = 0;
+while(t_<=20){
+
+x = g-y;
+y1=z1;
+m1=(-y1/T1+k1/T1*x)*dt;
+m2=(-y1/T1+k1/T1*x+m1/2)*dt;
+m3=(-y1/T1+k1/T1*x+m2/2)*dt;
+m4=(-y1/T1+k1/T1*x+m3)*dt;
+z1=z1+1/6*(m1+2*m2+2*m3+m4);
+
+y2=z11;
+m1=(-2*e/T2*y2+z12)*dt;
+m11=(-1/(T2*T2)*y2+k2/(T2*T2)*y1)*dt;
+m2=(-2*e/T2*y2+z12+m1/2)*dt;
+m21=(-1/(T2*T2)*y2+k2/(T2*T2)*y1+m11/2)*dt;
+m3=(-2*e/T2*y2+z12+m2/2)*dt;
+m31=(-1/(T2*T2)*y2+k2/(T2*T2)*y1+m21/2)*dt;
+m4=(-2*e/T2*y2+z12+m3)*dt;
+m41=(-1/(T2*T2)*y2+k2/(T2*T2)*y1+m31)*dt;
+z11=z11+1/6*(m1+2*m2+2*m3+m4);
+z12=z12+1/6*(m11+2*m21+2*m31+m41);
+
+y3=z3;
+m1=(-1/T3*y3+k3/T3*y2)*dt;
+m2=(-1/T3*y3+k3/T3*y2+m1/2)*dt;
+m3=(-1/T3*y3+k3/T3*y2+m2/2)*dt;
+m4=(-1/T3*y3+k3/T3*y2+m3)*dt;
+z3=z3+1/6*(m1+2*m2+2*m3+m4);
+
+if(i-1>ns) {
+   if(j>=ns) j=0;
+   j=j+1;
+   y=mas[j];
+   mas[j]=y3;
+}
+else {
+   mas[i]=y3;
+   y=0;
+}
+
+A[i]=[t_,y];
+t_=t_+dt; 
+i++;
+   
+    } 
+    var data = google.visualization.arrayToDataTable(A);   
+    var options = {
+      title: 'Система с запаздыванием',
+      curveType: 'function',
+      hAxis: {
+          title: 't'
+        },
+height: 500,
+      vAxis: {
+        title: 'h(t),w(t)'
+      },
+explorer: {
+        axis: 'horizontal',
+        keepInBounds: true,
+        maxZoomIn: 40.0
+},
+      legend: { position: 'bottom' }
+    };
+
+    var chart = new google.visualization.LineChart(document.getElementById('curve_chart'));
+    chart.draw(data, options);
+  }
+</script>
+ <div id="curve_chart">      </div>
