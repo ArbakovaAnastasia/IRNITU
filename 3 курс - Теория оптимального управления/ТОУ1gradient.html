@@ -1,0 +1,979 @@
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>  
+<script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?sensor=false"></script>
+<script type="text/javascript" src="js/jquery-1.8.3.min.js"></script>
+<script type="text/javascript">
+    google.charts.load('current', {'packages':['corechart']});
+    google.charts.setOnLoadCallback(drawChart);
+    function drawChart(){
+        var T1 = 1;                           //постоянная времени
+        var k = 1;                            //коэффициент усиления
+        var g = 1;                            //входное воздействие (задающее воздействие)
+        var dt = 0.01;
+        var L = 20;                           //длина моделирования
+        var Len = 700;                        //длина моделирования
+        var h = 0.3;                          //шаг по антиградиенту
+        var tau = 0.3;
+        var q1optim1, q2optim1, q3optim1;
+        var q1optim2, q2optim2, q3optim2;
+        var a = 0, b = 0, c = 0;
+        var e1 = 0, e2= 0, e3 = 0;            //ksi1 ksi2 ksi3 функция чувствительности
+        var sume1 = 0, sume2 = 0, sume3 = 0;  //сумма ksi1 ksi2 ksi3 функция чувствительности
+        var e1pr = 0, e2pr = 0, e3pr = 0;     //предыдущая ksi1 ksi2 ksi3 функция чувствительности
+        var de1, de2, de3;                    //дельта ksi1 ksi2 ksi3 функция чувствительности
+        var dx;                               //дельта x
+        var u;                                //u управляемое воздействие 
+        var sumx = 0;                         //сумма x
+        var sumI = 0                          //сумма ошибки I
+        var didq1 = 0, didq2 = 0, didq3 = 0;  //составляющие градиента
+        var m1 = 0, m2 = 0, m3 = 0, m4 = 0;   //рунге кутта
+        var k1 = 0, k2 = 0, k3 = 0, k4 = 0;   //рунге кутта
+        var z = 0, z1 = 0, z2 = 0, z3 = 0;    //рунге кутта
+        var t_ = 0;                           //для цикла
+        var krit = 0, kritpr;                 //I = 0 интегральная ошибка // I_pred = I
+        var ns; ns = tau / dt;                //для запаздывания
+        var xpred=0;                          //предыдущая ошибка регулирования
+        var x = 0;                            //ошибка регулирования x = g - y
+        var y = 0;                            //выходное  воздействие (регулируемая величина)
+        var y1 = 0; 
+
+        var A = new Array(['x', 'h(t)','hz(t)', 'krit']); 
+        var B = new Array(['x','ksi1', 'ksi2', 'ksi3']);
+        var I = new Array(['x', 'didq1', 'didq2', 'didq3']);
+        var I2 = new Array(['x', 'didq1', 'didq2', 'didq3']);
+        var I3 = new Array(['x', 'didq1', 'didq2', 'didq3']);
+        var Q = new Array(['x', 'q1', 'q2', 'q3']);
+        var DT = new Array(['x']);
+        var Krit = new Array(['x', 'krit']);
+        var massivQ1 = new Array(['x', 'q1(1)', 'q1(2)', 'q1(3)']);
+        var massivQ2 = new Array(['x', 'q2(1)', 'q2(2)', 'q2(3)']);
+        var massivQ3 = new Array(['x', 'q3(1)', 'q3(2)', 'q3(3)']);
+        var MassivQ12 = new Array(['x', 'q1(1)', 'q2(1)', 'q3(1)']);
+        var BeforeAfter = new Array(['x', 'h(t) до оптимизации', 'h(t) после оптимизации', 'h(t) во 2 итерации', 'h(t) в 3 итерации']);
+        var H1 = new Array(['x', 'h(t) до оптимизации', 'h(t) после оптимизации']);
+        var H2 = new Array(['x', 'h(t) до оптимизации', 'h(t) после оптимизации']);
+        var H3 = new Array(['x', 'h(t) до оптимизации', 'h(t) после оптимизации']);
+        var mas = new Array(['y']);
+        var mase1 = new Array(['e1']);
+        var mase2 = new Array(['e2']);
+        var mase3 = new Array(['e3']);
+        var Q11 = new Array(['q1']);
+        var Q12 = new Array(['q1']);
+        var Q13 = new Array(['q1']);
+        var Q21 = new Array(['q2']);
+        var Q22 = new Array(['q2']);
+        var Q23 = new Array(['q2']);
+        var Q31 = new Array(['q3']);
+        var Q32 = new Array(['q3']);
+        var Q33 = new Array(['q3']);
+        var KQ = new Array(['kq']);
+        var Krit1 = new Array(['Krit1']);
+        var Krit2 = new Array(['Krit2']);
+        var Krit3 = new Array(['Krit3']);
+        var Kriterii = new Array(['x', 'krit(1)', 'krit(2)', 'krit(3)']);
+        var BeforeHt = new Array(['h(t)']);
+        var AfterHt = new Array(['h(t)']);
+        var AfterHt1 = new Array(['h(t)']);
+        var AfterHt2 = new Array(['h(t)']);
+        var AfterHt1zapusk = new Array(['h(t)']);
+        var AfterHt2zapusk = new Array(['h(t)']);
+        var counter = 0;
+        var i = 1, j = 0;
+        var check = true;
+
+        //цикл для моделирования 3 запусков
+        for (let count = 0; count < 3; count++){ 
+          if (count == 0){           //q1, q2, q3 при первом запуске
+            q1 = 5;
+            q2 = 2;
+            q3 = 0.5;
+          } else if (count == 1){    //q1, q2, q3 при втором запуске
+            q1 = 1;
+            q2 = 4;
+            q3 = 0.2;
+          } else if (count == 2){    //q1, q2, q3 при третьем запуске
+            q1 = 2;
+            q2 = 4.5;
+            q3 = 0.1;
+          }
+
+          dudq1 = 0, dudq2 = 0, dudq3 = 0;
+          x = 0;
+          h = 0.3;
+          i = 1;
+          check = true;
+
+          for (let kq = 0; kq < Len; kq++){     //цикл для получения значений критерия, q1, q2, q3, составляющих градиента
+              kritpr = krit;                    // I_pred = I
+              krit = 0;                         // I = 0
+              sumx = 0; xpred = 0;
+              sume1 = 0; sume2 = 0; sume3 = 0;
+              e1pr = 0; e2pr = 0; e3pr = 0;
+              sumI = 0; didq1 = 0; didq2 = 0; didq3 = 0;
+              e1 = 0; e2 = 0; e3 = 0;
+              y = 0; y1 = 0; 
+              z = 0, z1 = 0; z2 = 0; z3 = 0;
+              t_ = 0;
+              i = 1;
+              j = 0;
+              while(t_ <= L ){                //цикл для моделирования переходного процесса, функций чувствительности
+                  xpred = x;
+                  x = g - y;
+                  //u_pid
+                  sumx = sumx + x * dt;
+                  dx = (x - xpred) / dt;
+                  u = q1 * x + q2 * sumx + q3 * dx;
+                  //y_model
+                  sume1 = sume1 + e1 * dt;
+                  de1 = (e1 - e1pr) / dt;
+                  dudq1 = x - q1 * e1 - q2 * sume1 - q3 * de1;
+                  e1pr = e1;
+                  a = z1;
+                  k1 = dt*(k / T1 * dudq1 - (a / (T1)));
+                  k2 = dt*(k / T1 * dudq1 - (a + k1 / 2)/T1);
+                  k3 = dt*(k / T1 * dudq1 - (a + k2 / 2)/T1);
+                  k4 = dt*(k / T1 * dudq1 - (a + k3)/T1);
+                  z1 = z1 + (k1 + 2*k2 + 2*k3 + k4)/6;
+
+                  sume2 = sume2 + e2 * dt;
+                  de2 = (e2 - e2pr) / dt;
+                  dudq2 = sumx - q1 * e2 - q2 * sume2 - q3 * de2;
+                  e2pr = e2;
+                  b = z2;
+                  k1 = dt*(k / (T1) * dudq2 - (b / (T1)));
+                  k2 = dt*(k / (T1) * dudq2 - (b + k1 / 2)/T1);
+                  k3 = dt*(k / (T1) * dudq2 - (b + k2 / 2)/T1);
+                  k4 = dt*(k / (T1) * dudq2 - (b + k3)/T1);
+                  z2 = z2 + (k1 + 2*k2 + 2*k3 + k4)/6;
+
+                  sume3 = sume3 + e3 * dt;
+                  de3 = (e3 - e3pr) / dt;
+                  dudq3 = dx - q1 * e3 - q2 * sume3 - q3 * de3;
+                  e3pr = e3;
+                  c = z3;
+                  k1 = dt*(k / (T1) * dudq3 - (c / (T1)));
+                  k2 = dt*(k / (T1) * dudq3 - (c + k1 / 2)/T1);
+                  k3 = dt*(k / (T1) * dudq3 - (c + k2 / 2)/T1);
+                  k4 = dt*(k / (T1) * dudq3 - (c + k3)/T1);
+                  z3 = z3 + (k1 + 2*k2 + 2*k3 + k4)/6;
+
+                  y1 = z;
+                  m1 = dt*((k / T1) * u - (y1 /T1));
+                  m2 = dt*(k / T1 * u - (y1 + m1 / 2)/T1);
+                  m3 = dt*(k / T1 * u - (y1 + m2 / 2)/T1);
+                  m4 = dt*(k / T1 * u - (y1 + m3)/T1);
+                  z = z + (m1 + 2*m2 + 2*m3 + m4)/6;
+                  
+                  //zap
+                  if(i - 1 > ns) {
+                      if(j >= ns) j = 0;
+                      j = j + 1;
+                      y = mas[j];
+                      e1 = mase1[j];
+                      e2 = mase2[j];
+                      e3 = mase3[j];
+                
+                      mas[j]=y1;
+                      mase1[j] = a;
+                      mase2[j] = b;
+                      mase3[j] = c;
+                  } else {
+                      mas[i]=y1;
+                      mase1[i] = a;
+                      mase2[i] = b;
+                      mase3[i] = c;
+                      e1 = 0;
+                      e2 = 0;
+                      e3 = 0;
+                      y=0;
+                  }
+
+                  krit = krit + Math.abs(x) * dt;
+
+                  didq1 += -Math.sign(x) * e1 *dt;
+                  didq2 += -Math.sign(x) * e2 *dt;
+                  didq3 += -Math.sign(x) * e3 *dt;
+                  
+                  if (counter <= L){
+                      A.push([t_, y1, y, krit]);
+                      B.push([t_, e1, e2, e3]);
+                    
+                      Krit.push([t_, krit]);
+                      BeforeHt.push(y1);
+                      DT.push(t_);
+                  }
+                  i++;
+                  t_ = t_ + dt; 
+                  counter += dt;
+                  if (count == 1){
+                      AfterHt1.push(y1);
+                  }
+                  if (count == 2){
+                      AfterHt2.push(y1);
+                  }
+                  
+              } 
+              
+              if (krit < kritpr) 
+                  h = h * 1.23;
+              else
+                  h = h / 2;
+
+              //ищем максимальный dIdQ
+              // if(Math.abs(didq1) >= Math.abs(didq2) && Math.abs(didq1) >= Math.abs(didq3)){
+              //   q1 = q1 - h*Math.sign(didq1);
+              // } else if(Math.abs(didq2) >= Math.abs(didq1) && Math.abs(didq2) >= Math.abs(didq3)){
+              //   q2 = q2 - h*Math.sign(didq2);
+              // } else {
+              //   q3 = q3 - h*Math.sign(didq3);
+              // }
+              /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+              sumI = didq1 * didq1 + didq2 * didq2 + didq3 * didq3;
+              sumI = Math.sqrt(sumI);
+              q1 = q1 - h*didq1/sumI;
+              q2 = q2 - h*didq2/sumI;
+              q3 = q3 - h*didq3/sumI;
+              /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+              if (sumI <= 0.000033){
+                check = false;
+              }
+              if (count == 0){
+                if (check){
+                  I.push([kq, didq1, didq2, didq3]);
+                }
+                Q11.push([q1]);
+                Q21.push([q2]);
+                Q31.push([q3]);
+                KQ.push([kq]);
+
+                Q.push([kq,q1,q2,q3]);
+                Krit1.push([krit]);
+              } else if(count == 1){
+                Q12.push([q1]);
+                Q22.push([q2]);
+                Q32.push([q3]);
+                Krit2.push([krit]);
+                if (check) {
+                  I2.push([kq, didq1, didq2, didq3]);
+                }
+              } else if(count == 2){
+                Q13.push([q1]);
+                Q23.push([q2]);
+                Q33.push([q3]);
+                Krit3.push([krit]);
+                if (check){
+                  I3.push([kq, didq1, didq2, didq3]);
+                }
+              }
+          }
+          if (count == 0){
+            q1optim1 = q1;
+            q2optim1 = q2;
+            q3optim1 = q3;
+          }
+          if (count == 1){
+            q1optim2 = q1;
+            q2optim2 = q2;
+            q3optim2 = q3;
+          }
+      }
+
+      //---3
+      kritpr = krit; 
+      krit = 0;
+      sumx = 0; xpred = 0;
+      sume1 = 0; sume2 = 0; sume3 = 0;
+      e1pr = 0; e2pr = 0; e3pr = 0;
+      sumI = 0; didq1 = 0; didq2 = 0; didq3 = 0;
+      e1 = 0; e2 = 0; e3 = 0;
+      y = 0; y1 = 0;
+      z = 0, z1 = 0; z2 = 0; z3 = 0;
+      t_ = 0;
+      i = 1;
+      j = 0;
+      x = 0;
+      while(t_ <= L){
+          xpred = x;
+          x = g - y;
+          sumx = sumx + x * dt;
+          u = q1 * x + q2 * sumx + q3 * dx;
+
+          sume1 = sume1 + e1*dt;
+          de1 = (e1 - e1pr)/dt;
+          dudq1 = x - q1 * e1 - q2 * sume1 - q3 * de1;
+          e1pr = e1;
+          a = z1;
+          k1 = dt*(k / T1 * dudq1 - (a / (T1)));
+          k2 = dt*(k / T1 * dudq1 - (a + k1 / 2)/T1);
+          k3 = dt*(k / T1 * dudq1 - (a + k2 / 2)/T1);
+          k4 = dt*(k / T1 * dudq1 - (a + k3)/T1);
+          z1 = z1 + (k1 + 2*k2 + 2*k3 + k4)/6;
+
+          sume2 = sume2 + e2*dt;
+          de2 = (e2 - e2pr)/dt;
+          dudq2 = sumx - q1 * e2 - q2 * sume2 - q3 * de2;
+          e2pr = e2;
+          b = z2;
+          k1 = dt*(k / (T1) * dudq2 - (b / (T1)));
+          k2 = dt*(k / (T1) * dudq2 - (b + k1 / 2)/T1);
+          k3 = dt*(k / (T1) * dudq2 - (b + k2 / 2)/T1);
+          k4 = dt*(k / (T1) * dudq2 - (b + k3)/T1);
+          z2 = z2 + (k1 + 2*k2 + 2*k3 + k4)/6;
+  
+          sume3 = sume3 + e3*dt;
+          de3 = (e3 - e3pr)/dt;
+          dudq3 = dx - q1 * e3 - q2 * sume3 - q3 * de3;
+          e3pr = e3;
+          c = z3;
+          k1 = dt*(k / (T1) * dudq3 - (c / (T1)));
+          k2 = dt*(k / (T1) * dudq3 - (c + k1 / 2)/T1);
+          k3 = dt*(k / (T1) * dudq3 - (c + k2 / 2)/T1);
+          k4 = dt*(k / (T1) * dudq3 - (c + k3)/T1);
+          z3 = z3 + (k1 + 2*k2 + 2*k3 + k4)/6;
+
+          y1 = z;
+          m1 = dt*((k / T1) * u - (y1 /T1));
+          m2 = dt*(k / T1 * u - (y1 + m1 / 2)/T1);
+          m3 = dt*(k / T1 * u - (y1 + m2 / 2)/T1);
+          m4 = dt*(k / T1 * u - (y1 + m3)/T1);
+          z = z + (m1 + 2*m2 + 2*m3 + m4)/6;
+
+          if(i - 1 > ns){
+            if(j >= ns) j = 0;
+            j = j + 1;
+            y = mas[j];
+            e1 = mase1[j];
+            e2 = mase2[j];
+            e3 = mase3[j];
+
+            mas[j] = y1;
+            mase1[j] = a;
+            mase2[j] = b;
+            mase3[j] = c;
+          } else {
+            mas[i]=y1;
+            mase1[i] = a;
+            mase2[i] = b;
+            mase3[i] = c;
+            e1 = 0;
+            e2 = 0;
+            e3 = 0;
+            y=0;
+          }
+          AfterHt.push(y1);
+          i++;
+          t_ = t_ + dt; 
+          counter += dt;
+      }
+
+      //---2
+      q1 = q1optim2;
+      q2 = q2optim2;
+      q3 = q3optim2;
+      kritpr = krit; 
+      krit = 0;
+      sumx = 0; xpred = 0;
+      sume1 = 0; sume2 = 0; sume3 = 0;
+      e1pr = 0; e2pr = 0; e3pr = 0;
+      sumI = 0; didq1 = 0; didq2 = 0; didq3 = 0;
+      e1 = 0; e2 = 0; e3 = 0;
+      y = 0; y1 = 0;
+      z = 0, z1 = 0; z2 = 0; z3 = 0;
+      t_ = 0;
+      i = 1;
+      j = 0;
+      x = 0;
+      while(t_ <= L){
+          xpred = x;
+          x = g - y;
+          sumx = sumx + x*dt;
+          u = q1*x + q2*sumx + q3*dx;
+          
+          sume1 = sume1 + e1*dt;
+          de1 = (e1 - e1pr)/dt;
+          dudq1 = x - q1 * e1 - q2 * sume1 - q3 * de1;
+          e1pr = e1;
+          a = z1;
+          k1 = dt*(k /T1 * dudq1 - (a / (T1)));
+          k2 = dt*(k / T1 * dudq1 - (a + k1 / 2)/T1);
+          k3 = dt*(k / T1 * dudq1 - (a + k2 / 2)/T1);
+          k4 = dt*(k / T1 * dudq1 - (a + k3)/T1);
+          z1 = z1 + (k1 + 2*k2 + 2*k3 + k4)/6;
+
+          sume2 = sume2 + e2*dt;
+          de2 = (e2 - e2pr)/dt;
+          dudq2 = sumx - q1 * e2 - q2 * sume2 - q3 * de2;
+          e2pr = e2;
+          b = z2;
+          k1 = dt*(k / (T1) * dudq2 - (b / (T1)));
+          k2 = dt*(k / (T1) * dudq2 - (b + k1 / 2)/T1);
+          k3 = dt*(k / (T1) * dudq2 - (b + k2 / 2)/T1);
+          k4 = dt*(k / (T1) * dudq2 - (b + k3)/T1);
+          z2 = z2 + (k1 + 2*k2 + 2*k3 + k4)/6;
+  
+          sume3 = sume3 + e3 * dt;
+          de3 = (e3 - e3pr)/dt;
+          dudq3 = dx - q1 * e3 - q2 * sume3 - q3 * de3;
+          e3pr = e3;
+          c = z3;
+          k1 = dt*(k / (T1) * dudq3 - (c / (T1)));
+          k2 = dt*(k / (T1) * dudq3 - (c + k1 / 2)/T1);
+          k3 = dt*(k / (T1) * dudq3 - (c + k2 / 2)/T1);
+          k4 = dt*(k / (T1) * dudq3 - (c + k3)/T1);
+          z3 = z3 + (k1 + 2*k2 + 2*k3 + k4)/6;
+
+          y1 = z;
+          m1 = dt*((k / T1) * u - (y1 /T1));
+          m2 = dt*(k / T1 * u - (y1 + m1 / 2)/T1);
+          m3 = dt*(k / T1 * u - (y1 + m2 / 2)/T1);
+          m4 = dt*(k / T1 * u - (y1 + m3)/T1);
+          z = z + (m1 + 2*m2 + 2*m3 + m4)/6;
+
+          if(i - 1> ns){
+            if(j >= ns) j = 0;
+            j=j+1;
+            y=mas[j];
+            e1 = mase1[j];
+            e2 = mase2[j];
+            e3 = mase3[j];
+      
+            mas[j]=y1;
+            mase1[j] = a;
+            mase2[j] = b;
+            mase3[j] = c;
+          } else {
+            mas[i]=y1;
+            mase1[i] = a;
+            mase2[i] = b;
+            mase3[i] = c;
+            e1 = 0;
+            e2 = 0;
+            e3 = 0;
+            y=0;
+          }
+          AfterHt2zapusk.push(y1)
+          i++;
+          t_ = t_ + dt; 
+          counter += dt;
+      }
+
+      //---1
+      q1 = q1optim1;
+      q2 = q2optim1;
+      q3 = q3optim1;
+      kritpr = krit; 
+      krit = 0;
+      sumx = 0; xpred = 0;
+      sume1 = 0; sume2 = 0; sume3 = 0;
+      e1pr = 0; e2pr = 0; e3pr = 0;
+      sumI = 0; didq1 = 0; didq2 = 0; didq3 = 0;
+      e1 = 0; e2 = 0; e3 = 0;
+      y = 0; y1 = 0;
+      z = 0, z1 = 0; z2 = 0; z3 = 0;
+      t_= 0;
+      i = 1;
+      j = 0;
+      x = 0;
+      while(t_ <= L){
+          xpred = x;
+          x = g - y;
+          sumx = sumx + x*dt;
+          u = q1*x+q2*sumx+q3*dx;
+          
+          sume1 = sume1 + e1*dt;
+          de1 = (e1 - e1pr)/dt;
+          dudq1 = x - q1 * e1 - q2 * sume1 - q3 * de1;
+          e1pr = e1;
+          a = z1;
+          k1 = dt*(k /T1 * dudq1 - (a / (T1)));
+          k2 = dt*(k / T1 * dudq1 - (a + k1 / 2)/T1);
+          k3 = dt*(k / T1 * dudq1 - (a + k2 / 2)/T1);
+          k4 = dt*(k / T1 * dudq1 - (a + k3)/T1);
+          z1 = z1+(k1 + 2*k2 + 2*k3 + k4)/6;
+
+          sume2 = sume2 + e2*dt;
+          de2 = (e2 - e2pr)/dt;
+          dudq2 = sumx - q1*e2 - q2 * sume2 - q3*de2;
+          e2pr = e2;
+          b = z2;
+          k1 = dt*(k / (T1) * dudq2 - (b / (T1)));
+          k2 = dt*(k / (T1) * dudq2 - (b + k1 / 2)/T1);
+          k3 = dt*(k / (T1) * dudq2 - (b + k2 / 2)/T1);
+          k4 = dt*(k / (T1) * dudq2 - (b + k3)/T1);
+          z2 = z2 + (k1 + 2*k2 + 2*k3 + k4)/6;
+  
+          sume3 = sume3 + e3*dt;
+          de3 = (e3 - e3pr)/dt;
+          dudq3 = dx - q1*e3 - q2 * sume3 - q3*de3;
+          e3pr = e3;
+          c = z3;
+          k1 = dt*(k / (T1) * dudq3 - (c / (T1)));
+          k2 = dt*(k / (T1) * dudq3 - (c + k1 / 2)/T1);
+          k3 = dt*(k / (T1) * dudq3 - (c + k2 / 2)/T1);
+          k4 = dt*(k / (T1) * dudq3 - (c + k3)/T1);
+          z3 = z3 + (k1 + 2*k2 + 2*k3 + k4)/6;
+
+          y1 = z;
+          m1 = dt*((k / T1) * u - (y1 /T1));
+          m2 = dt*(k / T1 * u - (y1 + m1 / 2)/T1);
+          m3 = dt*(k / T1 * u - (y1 + m2 / 2)/T1);
+          m4 = dt*(k / T1 * u - (y1 + m3)/T1);
+
+          z = z + (m1 + 2*m2 + 2*m3 + m4)/6;
+              if(i-1>ns) 
+              {
+                  if(j>=ns) j=0;
+                  j=j+1;
+                  y=mas[j];
+                  e1 = mase1[j];
+                  e2 = mase2[j];
+                  e3 = mase3[j];
+      
+                  mas[j]=y1;
+                  mase1[j] = a;
+                  mase2[j] = b;
+                  mase3[j] = c;
+              } else {
+                      mas[i]=y1;
+                      mase1[i] = a;
+                      mase2[i] = b;
+                      mase3[i] = c;
+                      e1 = 0;
+                      e2 = 0;
+                      e3 = 0;
+                      y=0;
+                  }
+          AfterHt1zapusk.push(y1)
+          i++;
+          t_ = t_ + dt; 
+          counter += dt;
+      }   
+
+    var result = KQ.map(function (x) {
+      return parseFloat(x);
+    });
+    var resultQ11 = Q11.map(function (x) {
+      return parseFloat(x);
+    });
+    var resultQ12 = Q12.map(function (x) {
+      return parseFloat(x);
+    });
+    var resultQ13 = Q13.map(function (x) {
+      return parseFloat(x);
+    });
+    var resultQ21 = Q21.map(function (x) {
+      return parseFloat(x);
+    });
+    var resultQ22 = Q22.map(function (x) {
+      return parseFloat(x);
+    });
+    var resultQ23 = Q23.map(function (x) {
+      return parseFloat(x);
+    });
+    var resultQ31 = Q31.map(function (x) {
+      return parseFloat(x);
+    });
+    var resultQ32 = Q32.map(function (x) {
+      return parseFloat(x);
+    });
+    var resultQ33 = Q33.map(function (x) {
+      return parseFloat(x);
+    });
+    for (let n=0; n<Len; n++){
+      massivQ1.push([result[n], resultQ11[n], resultQ12[n], resultQ13[n]]);
+      massivQ2.push([result[n], resultQ21[n], resultQ22[n], resultQ23[n]]);
+      massivQ3.push([result[n], resultQ31[n], resultQ32[n], resultQ33[n]]);
+    }
+    for (let n=0; n<Len; n++){
+      MassivQ12.push([result[n], resultQ11[n], resultQ21[n], resultQ31[n]]);
+    }
+//--------------------------------------------------------------------------------------
+    var res = KQ.map(function (x) {
+      return parseFloat(x);
+    });
+    var result1 = Krit1.map(function (x) {
+      return parseFloat(x);
+    });
+    var result2 = Krit2.map(function (x) {
+      return parseFloat(x);
+    });
+    var result3 = Krit3.map(function (x) {
+      return parseFloat(x);
+    });
+    for (let n=0; n<Len; n++){
+      Kriterii.push([res[n], result1[n], result2[n], result3[n]]);
+    }
+    var res = DT.map(function (x) {
+      return parseFloat(x);
+    });
+    var result1 = BeforeHt.map(function (x) {
+      return parseFloat(x);
+    });
+    var result2 = AfterHt.map(function (x) {
+      return parseFloat(x);
+    });
+    var result3 = AfterHt1.map(function (x) {
+      return parseFloat(x);
+    });
+    var result2zapusk = AfterHt2zapusk.map(function (x) {
+      return parseFloat(x);
+    });
+    var result1zapusk = AfterHt1zapusk.map(function (x) {
+      return parseFloat(x);
+    });
+    var result4 = AfterHt2.map(function (x) {
+      return parseFloat(x);
+    });
+
+    for (let i=0; i<L*100; i++){
+      BeforeAfter.push([res[i], result1[i], result2[i], result3[i], result4[i]])
+      H1.push([res[i], result1[i], result1zapusk[i]])
+      H2.push([res[i], result3[i], result2zapusk[i]])
+      H3.push([res[i], result4[i], result2[i]])
+    }
+      var data = google.visualization.arrayToDataTable(A);   
+      var data1 = google.visualization.arrayToDataTable(B);  
+      var data3 = google.visualization.arrayToDataTable(I);
+      var data4 = google.visualization.arrayToDataTable(Q);  
+      var data5 = google.visualization.arrayToDataTable(Krit);
+      var data6 = google.visualization.arrayToDataTable(massivQ1);
+      var data7 = google.visualization.arrayToDataTable(Kriterii);
+      var data8 = google.visualization.arrayToDataTable(massivQ2);
+      var data9 = google.visualization.arrayToDataTable(massivQ3);
+      var data10 = google.visualization.arrayToDataTable(BeforeAfter);
+      var data11 = google.visualization.arrayToDataTable(I2);
+      var data12 = google.visualization.arrayToDataTable(I3);
+      var data13 = google.visualization.arrayToDataTable(H1);
+      var data14 = google.visualization.arrayToDataTable(H2);
+      var data15 = google.visualization.arrayToDataTable(H3);
+      var data16 = google.visualization.arrayToDataTable(MassivQ12);
+      
+      var options = {
+        title: 'Моделирование заданного типового звена',
+        curveType: 'none',
+        hAxis: {
+          title: 't'
+        },
+        height: 500,
+        vAxis: {
+          title: 'h(t),w(t)'
+        },
+        explorer: {
+          axis: 'horizontal',
+          keepInBounds: true,
+          maxZoomIn: 40.0
+        },
+        legend: { position: 'bottom' }
+      };
+
+      var options1 = {
+        title: 'Функции чувствительности',
+        curveType: 'none',
+        hAxis: {
+          title: 't'
+        },
+        height: 500,
+        vAxis: {
+          title: 'h(t),w(t)'
+        },
+        explorer: {
+          axis: 'horizontal',
+          keepInBounds: true,
+          maxZoomIn: 40.0
+        },
+        legend: { position: 'bottom' }
+      };
+
+      var options4 = {
+        title: 'Оптимальные значения q1, q2, q3',
+        curveType: 'none',
+        hAxis: {
+            title: 't'
+          },
+  height: 500,
+        vAxis: {
+          title: 'h(t),w(t)'
+        },
+  explorer: {
+          axis: 'horizontal',
+          keepInBounds: true,
+          maxZoomIn: 40.0
+  },
+  
+        legend: { position: 'bottom' }
+      };
+      var options3 = {
+        title: 'частные производные критерия по q в 1 итерации',
+        curveType: 'none',
+        hAxis: {
+            title: 'n'
+          },
+  height: 500,
+        vAxis: {
+          title: 'dI/dq'
+        },
+  explorer: {
+          axis: 'horizontal',
+          keepInBounds: true,
+          maxZoomIn: 40.0
+  },
+        legend: { position: 'bottom' }
+      };
+  
+  
+  
+      var options5 = {
+          title: 'Критерий',
+          curveType: 'none',
+          hAxis: {
+              title: 't'
+            },
+          height: 500,
+          vAxis: {
+            title: 'h(t),w(t)'
+          },
+          explorer: {
+            axis: 'horizontal',
+            keepInBounds: true,
+            maxZoomIn: 40.0
+        },
+              legend: { position: 'bottom' }
+      };
+      var options6 = {
+          title: 'Сходимость q1',
+          curveType: 'none',
+          hAxis: {
+              title: 'n'
+            },
+          height: 500,
+          vAxis: {
+            title: ''
+          },
+          explorer: {
+            axis: 'horizontal',
+            keepInBounds: true,
+            maxZoomIn: 40.0
+        },
+              legend: { position: 'bottom' }
+      };
+      var options7 = {
+          title: 'Сходимость критерия',
+          curveType: 'none',
+          hAxis: {
+              title: 'n'
+            },
+          height: 500,
+          vAxis: {
+            title: ''
+          },
+          explorer: {
+            axis: 'horizontal',
+            keepInBounds: true,
+            maxZoomIn: 40.0
+        },
+              legend: { position: 'bottom' }
+      };
+      var options8 = {
+          title: 'Сходимость q2',
+          curveType: 'none',
+          hAxis: {
+              title: 'n'
+            },
+          height: 500,
+          vAxis: {
+            title: ''
+          },
+          explorer: {
+            axis: 'horizontal',
+            keepInBounds: true,
+            maxZoomIn: 40.0
+        },
+              legend: { position: 'bottom' }
+      };
+      var options9 = {
+          title: 'Сходимость q3',
+          curveType: 'none',
+          hAxis: {
+              title: 'n'
+            },
+          height: 500,
+          vAxis: {
+            title: ''
+          },
+          explorer: {
+            axis: 'horizontal',
+            keepInBounds: true,
+            maxZoomIn: 40.0
+        },
+              legend: { position: 'bottom' }
+      };
+      var options10 = {
+          title: 'переходный процесс до оптимизации и после оптимизации',
+          curveType: 'none',
+          hAxis: {
+              title: 't'
+            },
+          height: 500,
+          vAxis: {
+            title: 'h(t),w(t)'
+          },
+          explorer: {
+            axis: 'horizontal',
+            keepInBounds: true,
+            maxZoomIn: 40.0
+        },
+              legend: { position: 'bottom' }
+      };
+      var options15 = {
+          title: 'переходный процесс до оптимизации и после оптимизации в 3 итерации',
+          curveType: 'none',
+          hAxis: {
+              title: 't'
+            },
+          height: 500,
+          vAxis: {
+            title: 'h(t),w(t)'
+          },
+          explorer: {
+            axis: 'horizontal',
+            keepInBounds: true,
+            maxZoomIn: 40.0
+        },
+              legend: { position: 'bottom' }
+      };
+      var options14 = {
+          title: 'переходный процесс до оптимизации и после оптимизации во 2 итерации',
+          curveType: 'none',
+          hAxis: {
+              title: 't'
+            },
+          height: 500,
+          vAxis: {
+            title: 'h(t),w(t)'
+          },
+          explorer: {
+            axis: 'horizontal',
+            keepInBounds: true,
+            maxZoomIn: 40.0
+        },
+              legend: { position: 'bottom' }
+      };
+      var options13 = {
+          title: 'переходный процесс до оптимизации и после оптимизации в 1 итерации',
+          curveType: 'none',
+          hAxis: {
+              title: 't'
+            },
+          height: 500,
+          vAxis: {
+            title: 'h(t),w(t)'
+          },
+          explorer: {
+            axis: 'horizontal',
+            keepInBounds: true,
+            maxZoomIn: 40.0
+        },
+              legend: { position: 'bottom' }
+      };
+      var options11 = {
+          title: 'частные производные критерия по q во 2 итерации',
+          curveType: 'none',
+          hAxis: {
+              title: 'n'
+            },
+          height: 500,
+          vAxis: {
+            title: 'dI/dq'
+          },
+          explorer: {
+            axis: 'horizontal',
+            keepInBounds: true,
+            maxZoomIn: 40.0
+        },
+              legend: { position: 'bottom' }
+      };
+      var options12 = {
+          title: 'частные производные критерия по q в 3 итерации',
+          curveType: 'none',
+          hAxis: {
+              title: 'n'
+            },
+          height: 500,
+          vAxis: {
+            title: 'dI/dq'
+          },
+          explorer: {
+            axis: 'horizontal',
+            keepInBounds: true,
+            maxZoomIn: 40.0
+        },
+              legend: { position: 'bottom' }
+      };
+      var options16 = {
+          title: 'параметры q1, q2, q3',
+          curveType: 'none',
+          hAxis: {
+              title: 'n'
+            },
+          height: 500,
+          vAxis: {
+            title: ''
+          },
+          explorer: {
+            axis: 'horizontal',
+            keepInBounds: true,
+            maxZoomIn: 40.0
+        },
+              legend: { position: 'bottom' }
+      };
+
+      var chart = new google.visualization.LineChart(document.getElementById('curve_chart'));
+      var chart1 = new google.visualization.LineChart(document.getElementById('curve_chart1'));
+      var chart3 = new google.visualization.LineChart(document.getElementById('curve_chart3'));
+      var chart5 = new google.visualization.LineChart(document.getElementById('curve_chart5'));
+      var chart6 = new google.visualization.LineChart(document.getElementById('curve_chart6'));
+      var chart7 = new google.visualization.LineChart(document.getElementById('curve_chart7'));//сходимость критерия при 3 запусках
+      var chart8 = new google.visualization.LineChart(document.getElementById('curve_chart8'));
+      var chart9 = new google.visualization.LineChart(document.getElementById('curve_chart9'));
+      var chart10 = new google.visualization.LineChart(document.getElementById('curve_chart10'));
+      var chart11 = new google.visualization.LineChart(document.getElementById('curve_chart11'));
+      var chart12 = new google.visualization.LineChart(document.getElementById('curve_chart12'));
+      var chart13 = new google.visualization.LineChart(document.getElementById('curve_chart13'));
+      var chart14 = new google.visualization.LineChart(document.getElementById('curve_chart14'));
+      var chart15 = new google.visualization.LineChart(document.getElementById('curve_chart15'));
+      var chart16 = new google.visualization.LineChart(document.getElementById('curve_chart16'));
+      chart.draw(data, options);
+      chart1.draw(data1,options1);
+      chart3.draw(data3,options3);//didq в 1 итерации
+      chart5.draw(data5,options5);
+      chart7.draw(data7,options7);//сходимость критерия при 3 запусках
+      chart6.draw(data6,options6);//значения q1 при разных запусках
+      chart8.draw(data8,options8);//значения q2 при разных запусках
+      chart9.draw(data9,options9);//значения q3 при разных запусках
+      chart10.draw(data10,options10);//переходный процесс до оптимизации и после оптимизации
+      chart11.draw(data11,options11);//didq в 2 итерации
+      chart12.draw(data12,options12);//didq в 3 итерации
+      chart13.draw(data13,options13);//
+      chart14.draw(data14,options14);//
+      chart15.draw(data15,options15);//
+      chart16.draw(data16,options16);//
+    }
+  </script>
+   <div id="curve_chart">      </div> <!--моделирование типового звена-->
+
+   <div id="curve_chart6">      </div><!--сходимость q1 при 3 запусках-->
+   <div id="curve_chart8">      </div><!--сходимость q2 при 3 запусках-->
+   <div id="curve_chart9">      </div><!--сходимость q3 при 3 запусках-->
+   <div id="curve_chart16">      </div>
+
+   <div id="curve_chart3">      </div>
+   <div id="curve_chart11">      </div>
+   <div id="curve_chart12">      </div>
+
+   <div id="curve_chart5">      </div>
+   <div id="curve_chart7">      </div><!--сходимость критерия при 3 запусках-->
+    <div id="curve_chart1">      </div>
+
+   <div id="curve_chart13">      </div>
+   <div id="curve_chart14">      </div>
+   <div id="curve_chart15">      </div>
+   <div id="curve_chart10">      </div>

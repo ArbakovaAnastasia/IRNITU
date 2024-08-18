@@ -1,0 +1,235 @@
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <title>тоу 2</title>
+    <script src="https://cdn.plot.ly/plotly-2.20.0.min.js" charset="utf-8"></script>
+</head>
+<body>
+<div id="plt-1"></div>
+<div id="plt-2"></div>
+<div id="plt-3"></div>
+<div id="plt-4"></div>
+<div id="info-table" style="display: flex; justify-content: center;"></div>
+<script>
+    function degreeToRadian(deg) {
+        return (deg * Math.PI) / 180;
+    }
+    function drawPlots() {
+         J = 2000
+		 M = 50
+		 v0 = 330
+		 dv_dt0 = -60
+         v0 = degreeToRadian(v0);
+         dv_dt0 = degreeToRadian(dv_dt0);
+        const k = M / J;
+        const c0_mu = (mu) => dv_dt0 ** 2 - mu * 2 * k * v0;
+		const dv_dt_i = (k, c1) => -Math.sqrt(2 * k * Math.abs(c1)) * Math.sign(c1);
+        const dv = 0.001;
+        const time_line = [];
+        const v_line = [];
+        const dvdt_line = [];
+        const parabola_x_line = [];
+        const primary_parabola_y_line = [];
+        const static_parabola_y_line = [];
+        const switch_x_line = [];
+        const switch_y_line = [];
+        let selected_mu;
+        let selected_mu_value;
+        let t1_practice = 0;
+        let t2_practice = 0;
+        function drawSwitchLine() {
+            let v_start = -4;
+            let v_end = -v_start;
+            while (v_start <= v_end) {
+                switch_y_line.push(dv_dt_i(k, v_start));
+                switch_x_line.push(v_start);
+                v_start += dv;
+            }
+            selected_mu = dv_dt0 < dv_dt_i(k, v0);
+            selected_mu_value = selected_mu ? 1 : -1;
+        }
+        function drawMainParabola() {
+            let v0_start = -(Math.abs(dv_dt0) + 0.1);
+            let v0_end = -v0_start;
+            while (v0_start <= v0_end) {
+                parabola_x_line.push(v0_start);
+                primary_parabola_y_line.push((-selected_mu_value * (c0_mu(selected_mu_value) - v0_start ** 2)) / 2 / k);
+                v0_start += dv;
+            }
+        }
+        function drawSecondaryParabola() {
+            let v0_start = -(Math.abs(dv_dt0) + 0.1);
+            let v0_end = -v0_start;
+            while (v0_start <= v0_end) {
+                static_parabola_y_line.push((-selected_mu_value * v0_start ** 2) / 2 / k);
+                v0_start += dv;
+            }
+        }
+        function logic(t, t_prev, v, v_prev) {
+            const dvdt = (v - v_prev) / (t - t_prev);
+            const dvdt_p = dv_dt_i(k, v);
+            if (dvdt < dvdt_p || (dvdt === dvdt_p && dvdt < 0)) {
+                return 1;
+            }
+            return -1;
+        }
+        function model(mu, v, dvdt, dt) {
+            let k1 = dvdt * dt;
+            let m1 = mu * k * dt;
+            let k2 = (dvdt + m1 / 2) * dt;
+            let m2 = mu * k * dt;
+            let k3 = (dvdt + m2 / 2) * dt;
+            let m3 = mu * k * dt;
+            let k4 = (dvdt + m3) * dt;
+            let m4 = mu * k * dt;
+            const new_v = v + (k1 + 2 * k2 + 2 * k3 + k4) / 6;
+            const new_dvdt = dvdt + (m1 + 2 * m2 + 2 * m3 + m4) / 6;
+            return [new_v, new_dvdt];
+        }
+        function modelSystem() {
+            const L = 130;
+            const dt = 0.001;
+            let t_prev = 0;
+            let t = 0;
+            let mu = selected_mu ? 1 : -1;
+            let v = v0;
+            let v_prev = v0;
+            let dvdt = dv_dt0;
+            while (t < L) {
+                time_line.push(t);
+                v_line.push(v);
+                dvdt_line.push(dvdt);
+                mu_prev = mu;
+                mu = logic(t, t_prev, v, v_prev);
+                t_prev = t;
+                v_prev = v;
+                [v, dvdt] = model(mu, v, dvdt, dt);
+                if (Math.abs(v) <= 1e-3 && Math.abs(dvdt) <= 1e-3) {
+                    break;
+                }
+                mu === selected_mu_value ? (t1_practice += dt) : (t2_practice += dt);
+                t += dt;
+            }
+        }
+        function drawTable() {
+            const v1 = c0_mu(selected_mu_value) / (2 * k);
+            const _dv_dt1 = -Math.sqrt(k * Math.abs(v1)) * Math.sign(v1);
+            const t1 = Math.abs((_dv_dt1 - dv_dt0 * -selected_mu_value) / k);
+            const t2 = Math.abs(-_dv_dt1 / k);
+            let table = document.createElement('table')
+            let cellJ = "<tr><td>J:</td><td>"+J+"</td></tr>"
+            let cellM = "<tr><td>M:</td><td>"+M+"</td></tr>"
+            let cellK = "<tr><td>k:</td><td>"+k+"</td></tr>"
+            let cellC0Plus = "<tr><td>c0_mu, mu = +1:</td><td>"+c0_mu(+1)+"</td></tr>"
+            let cellC0Min= "<tr><td>c0_mu, mu = -1:</td><td>"+c0_mu(-1)+"</td></tr>"
+            let cellV0 = "<tr><td>v0:</td><td>"+v0+"</td></tr>"
+            let cellV1 = "<tr><td>v1:</td><td>"+v1/2+"</td></tr>"
+            let cellDV0 = "<tr><td>dv_dt0:</td><td>"+dv_dt0+"</td></tr>"
+            let cellDV1 = "<tr><td>dv_dt1:</td><td>"+_dv_dt1+"</td></tr>"
+            let cellT1A = "<tr><td>t1 теоритическое:</td><td>"+t1+"</td></tr>"
+            let cellT2A = "<tr><td>t2 теоритическое:</td><td>"+t2+"</td></tr>"
+            let cellT1T = "<tr><td>t1 практическое:</td><td>"+t1_practice+"</td></tr>"
+            let cellT2T = "<tr><td>t2 практическое:</td><td>"+t2_practice+"</td></tr>"
+            let cellT = "<tr><td>T:</td><td>"+(t1_practice + t2_practice)+"</td></tr>"
+            table.innerHTML = cellJ+cellM+cellK+cellC0Plus+cellC0Min+cellV0+cellV1+cellDV0+cellDV1+cellT1A+cellT2A+cellT1T+cellT2T+cellT;
+            table.setAttribute('border', 1)
+            document.getElementById('info-table').appendChild(table)
+        }
+        function outputPlots() {
+            const start_point = {
+                name: 'v0',
+                mode: 'trace',
+                x: [v0],
+                y: [dv_dt0],
+            };
+            const faza_legend = {
+                title: `μ = ${selected_mu_value}`,
+                xaxis: {
+                    title: 'v',
+                },
+                yaxis: {
+                    title: 'dvdt',
+                },
+            };
+            const v_t_legend = {
+                title: 'Угол от времени',
+                xaxis: {
+                    title: 't',
+                },
+                yaxis: {
+                    title: 'v',
+                },
+            };
+
+            const dvdt_t_legend = {
+                title: 'Угловая скорость от времени',
+                xaxis: {
+                    title: 't',
+                },
+                yaxis: {
+                    title: 'dvdt',
+                },
+            };
+
+            const dvdt_v_legend = {
+                title: '',
+                xaxis: {
+                    title: 'v',
+                },
+                yaxis: {
+                    title: 'dvdt',
+                },
+            };
+
+            const primary_parabola_plot = {
+                name: 'Фазовая траектория u=-1',
+                mode: 'lines',
+                x: primary_parabola_y_line,
+                y: parabola_x_line,
+            };
+
+            const static_parabola_plot = {
+                name: 'Фазовая траектория u= 1',
+                mode: 'lines',
+                x: static_parabola_y_line,
+                y: parabola_x_line,
+            };
+
+            const v_t_plot = {
+                name: 'угол',
+                mode: 'lines',
+                x: time_line,
+                y: v_line,
+            };
+
+            const dvdt_t_plot = {
+                name: 'скорость',
+                mode: 'lines',
+                x: time_line,
+                y: dvdt_line,
+            };
+
+            const dvdt_v_plot = {
+                name: 'скорость',
+                mode: 'lines',
+                x: v_line,
+                y: dvdt_line,
+            };
+
+            const switch_plot = {
+                name: 'Линия переключения',
+                mode: 'lines',
+                x: switch_x_line,
+                y: switch_y_line,
+            };
+            Plotly.newPlot('plt-1', [primary_parabola_plot, static_parabola_plot, switch_plot, start_point], faza_legend);
+            Plotly.newPlot('plt-2', [v_t_plot], v_t_legend);
+            Plotly.newPlot('plt-3', [dvdt_t_plot], dvdt_t_legend);
+            Plotly.newPlot('plt-4', [dvdt_v_plot], dvdt_v_legend);
+        }
+        drawSwitchLine(); drawSecondaryParabola(); drawMainParabola(); modelSystem(); drawTable();outputPlots();}
+drawPlots();
+</script>
+<script src="https://cdn.plot.ly/plotly-2.20.0.min.js" charset="utf-8"></script>
+</body>
+</html>
