@@ -1,6 +1,7 @@
 # IRNITU
 некоторые ссылки на проекты, которые не загружены на гит  
 ## 1 курс:  
+__Тема: Разработка приложений с использованием С++ Bulder/ Embarcadero RAD Studio__    
 Учебная практика - ссылка на гугл диск - https://drive.google.com/drive/folders/1oF-iOrm9J0Gs6vccoXjZhTNIHrIg2iWM?usp=sharing  
 проект открывать в С++ Builder
 ## 3 курс:  
