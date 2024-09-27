@@ -6,6 +6,10 @@ __Тема: Разработка приложений с использован�
 проект открывать в С++ Builder
 
 ![image](https://github.com/ArbakovaAnastasia/IRNITU/blob/main/1%20курс%20-%20Учебная%20практика/1.png)
+![image](https://github.com/ArbakovaAnastasia/IRNITU/blob/main/1%20курс%20-%20Учебная%20практика/2.png)
+![image](https://github.com/ArbakovaAnastasia/IRNITU/blob/main/1%20курс%20-%20Учебная%20практика/3.png)
+![image](https://github.com/ArbakovaAnastasia/IRNITU/blob/main/1%20курс%20-%20Учебная%20практика/4.png)
+![image](https://github.com/ArbakovaAnastasia/IRNITU/blob/main/1%20курс%20-%20Учебная%20практика/5.png)
 
 ## 3 курс:  
 Методы анализа данных и Нейронные сети - ссылка на гугл диск - https://drive.google.com/drive/folders/1X8HxEsD9Mw6mlhfMR8lkgvRz1x4MLaoG?usp=drive_link  
